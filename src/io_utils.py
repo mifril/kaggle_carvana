@@ -6,8 +6,8 @@ import scipy.misc as scm
 from dask import delayed, threaded, compute
 
 MAIN_DIR = 'C://data//carvana//'
-TRAIN_DIR = MAIN_DIR + 'train'
-TEST_DIR = MAIN_DIR + 'test'
+TRAIN_DIR = MAIN_DIR + 'train_hq'
+TEST_DIR = MAIN_DIR + 'test_hq'
 MASK_DIR = MAIN_DIR + 'train_masks'
 
 # TRAIN_H5_FILE = 'C://data//carvana_train.h5'
@@ -20,18 +20,37 @@ MASK_DIR = MAIN_DIR + 'train_masks'
 CARVANA_H = 1280
 CARVANA_W = 1918
 
+def rle_encode(mask_image):
+    pixels = mask_image.flatten()
+    # We avoid issues with '1' at the start or end (at the corners of 
+    # the original image) by setting those pixels to '0' explicitly.
+    # We do not expect these to be non-zero for an accurate mask, 
+    # so this should not harm the score.
+    pixels[0] = 0
+    pixels[-1] = 0
+    runs = np.where(pixels[1:] != pixels[:-1])[0] + 2
+    runs[1::2] = runs[1::2] - runs[:-1:2]
+    return runs
+
+def rle_to_string(runs):
+    return ' '.join(str(x) for x in runs)
+
 def rle(img):
     img = cv2.resize(img.astype(np.uint8).reshape(img.shape[0], img.shape[1]), (CARVANA_W, CARVANA_H))
-    flat_img = img.flatten()
-    flat_img = np.where(flat_img > 0.5, 1, 0).astype(np.uint8)
+    return rle_to_string(rle_encode(img))
 
-    starts = np.array((flat_img[:-1] == 0) & (flat_img[1:] == 1))
-    ends = np.array((flat_img[:-1] == 1) & (flat_img[1:] == 0))
-    starts_ix = np.where(starts)[0] + 2
-    ends_ix = np.where(ends)[0] + 2
-    lengths = ends_ix - starts_ix
+# def rle(img):
+#     img = cv2.resize(img.astype(np.uint8).reshape(img.shape[0], img.shape[1]), (CARVANA_W, CARVANA_H))
+#     flat_img = img.flatten()
+#     flat_img = np.where(flat_img > 0.5, 1, 0).astype(np.uint8)
 
-    return ' '.join([str(starts_ix[i]) + ' ' + str(lengths[i]) for i in range(len(lengths))]) #starts_ix, lengths
+#     starts = np.array((flat_img[:-1] == 0) & (flat_img[1:] == 1))
+#     ends = np.array((flat_img[:-1] == 1) & (flat_img[1:] == 0))
+#     starts_ix = np.where(starts)[0] + 2
+#     ends_ix = np.where(ends)[0] + 2
+#     lengths = ends_ix - starts_ix
+
+#     return ' '.join([str(starts_ix[i]) + ' ' + str(lengths[i]) for i in range(len(lengths))]) #starts_ix, lengths
 
 
 def randomShiftScaleRotate(image, mask,
@@ -134,7 +153,7 @@ def test_generator(batch_size, img_h, img_w):
         img = cv2.imread(os.path.join(TEST_DIR, fn))
         x_batch[i % batch_size] = cv2.resize(img, (img_w, img_h))
         batch_names.append(fn)
-        if i != 0 and (i - 1) % batch_size == 0:
+        if batch_size == 1 or i != 0 and (i - 1) % batch_size == 0:
             yield batch_n, np.array(x_batch, np.float32) / 255, batch_names
             batch_names = []
             batch_n += 1
