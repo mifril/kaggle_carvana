@@ -10,22 +10,11 @@ TRAIN_DIR = MAIN_DIR + 'train_hq'
 TEST_DIR = MAIN_DIR + 'test_hq'
 MASK_DIR = MAIN_DIR + 'train_masks'
 
-# TRAIN_H5_FILE = 'C://data//carvana_train.h5'
-# TRAIN_H5_FILE_128 = 'C://data//carvana_train_128.h5'
-# TEST_H5_FILE_128 = 'C://data//carvana_test_128.h5'
-# TRAIN_H5_FILE_256 = 'C://data//carvana_train_256.h5'
-# TRAIN_H5_FILE_480_720 = 'C://data//carvana_train_480_720.h5'
-# TEST_H5_FILE_480_720 = '../features/carvana_test_480_720.h5'
-
 CARVANA_H = 1280
 CARVANA_W = 1918
 
 def rle_encode(mask_image):
     pixels = mask_image.flatten()
-    # We avoid issues with '1' at the start or end (at the corners of 
-    # the original image) by setting those pixels to '0' explicitly.
-    # We do not expect these to be non-zero for an accurate mask, 
-    # so this should not harm the score.
     pixels[0] = 0
     pixels[-1] = 0
     runs = np.where(pixels[1:] != pixels[:-1])[0] + 2
@@ -38,20 +27,6 @@ def rle_to_string(runs):
 def rle(img):
     img = cv2.resize(img.astype(np.uint8).reshape(img.shape[0], img.shape[1]), (CARVANA_W, CARVANA_H))
     return rle_to_string(rle_encode(img))
-
-# def rle(img):
-#     img = cv2.resize(img.astype(np.uint8).reshape(img.shape[0], img.shape[1]), (CARVANA_W, CARVANA_H))
-#     flat_img = img.flatten()
-#     flat_img = np.where(flat_img > 0.5, 1, 0).astype(np.uint8)
-
-#     starts = np.array((flat_img[:-1] == 0) & (flat_img[1:] == 1))
-#     ends = np.array((flat_img[:-1] == 1) & (flat_img[1:] == 0))
-#     starts_ix = np.where(starts)[0] + 2
-#     ends_ix = np.where(ends)[0] + 2
-#     lengths = ends_ix - starts_ix
-
-#     return ' '.join([str(starts_ix[i]) + ' ' + str(lengths[i]) for i in range(len(lengths))]) #starts_ix, lengths
-
 
 def randomShiftScaleRotate(image, mask,
                            shift_limit=(-0.0625, 0.0625),
